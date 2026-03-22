@@ -2,28 +2,34 @@
 # Write openclaw.json and .env from host key files, then restart.
 set -euo pipefail
 
-oc() { runuser -u openclaw -- env XDG_RUNTIME_DIR=/run/user/1002 HOME=/home/openclaw sh -c "cd /home/openclaw && $*"; }
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/config.sh
+source "$REPO/scripts/config.sh"
 
-ANTHROPIC_KEY=$(cat /home/aclater/.anthropic.key)
-GOOGLE_KEY=$(cat /home/aclater/.youtube.key)
-TAVILY_KEY=$(cat /home/aclater/.tavily.key)
+# Directory containing .anthropic.key, .tavily.key, .youtube.key. Override if needed.
+KEYS_DIR="${KEYS_DIR:-/home/aclater}"
+
+ANTHROPIC_KEY=$(cat "$KEYS_DIR/.anthropic.key")
+GOOGLE_KEY=$(cat "$KEYS_DIR/.youtube.key")
+TAVILY_KEY=$(cat "$KEYS_DIR/.tavily.key")
 
 echo "==> Writing .env..."
-cat > /home/openclaw/.openclaw/.env <<EOF
+mkdir -p "$OC_DATA"
+cat > "$OC_DATA/.env" <<EOF
 ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
 GEMINI_API_KEY=${GOOGLE_KEY}
 TAVILY_API_KEY=${TAVILY_KEY}
 EOF
-chmod 600 /home/openclaw/.openclaw/.env
-chown 1002:1003 /home/openclaw/.openclaw/.env
+chmod 600 "$OC_DATA/.env"
+chown "$OC_UID:$OC_GID" "$OC_DATA/.env"
 
 echo "==> Writing openclaw.json..."
-cat > /home/openclaw/.openclaw/openclaw.json <<EOF
+cat > "$OC_DATA/openclaw.json" <<EOF
 {
   "gateway": {
     "mode": "local",
     "controlUi": {
-      "allowedOrigins": ["http://127.0.0.1:18789"],
+      "allowedOrigins": ["http://127.0.0.1:${OC_PORT}"],
       "allowInsecureAuth": true,
       "dangerouslyDisableDeviceAuth": true
     }
@@ -53,13 +59,13 @@ cat > /home/openclaw/.openclaw/openclaw.json <<EOF
   }
 }
 EOF
-chmod 600 /home/openclaw/.openclaw/openclaw.json
-chown 1002:1003 /home/openclaw/.openclaw/openclaw.json
+chmod 600 "$OC_DATA/openclaw.json"
+chown "$OC_UID:$OC_GID" "$OC_DATA/openclaw.json"
 
-echo "==> Restarting OpenClaw..."
-oc "systemctl --user restart openclaw.service"
+echo "==> Restarting OpenClaw ($OC_NAME)..."
+oc "systemctl --user restart $OC_NAME.service"
 sleep 10
-journalctl _SYSTEMD_USER_UNIT=openclaw.service --since "12 seconds ago" --no-pager 2>/dev/null \
+journalctl _SYSTEMD_USER_UNIT="$OC_NAME.service" --since "12 seconds ago" --no-pager 2>/dev/null \
   | grep -v "container\|podman\|PODMAN" | tail -10
 
 echo "==> Done."

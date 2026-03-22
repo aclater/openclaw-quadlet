@@ -1,22 +1,22 @@
 [Unit]
-Description=OpenClaw gateway (rootless Podman)
+Description=OpenClaw gateway — %%OC_NAME%%
 After=network-online.target
 Wants=network-online.target
 
 [Container]
 Image=ghcr.io/openclaw/openclaw:slim
-ContainerName=openclaw
+ContainerName=%%OC_NAME%%
 UserNS=keep-id
-User=1002:1003
+User=%%OC_UID%%:%%OC_GID%%
 Network=host
-Volume=/home/openclaw/.openclaw:/home/node/.openclaw:Z
-EnvironmentFile=/home/openclaw/.openclaw/.env
+Volume=%%OC_DATA%%:/home/node/.openclaw:Z
+EnvironmentFile=%%OC_DATA%%/.env
 Environment=HOME=/home/node
 Environment=TERM=xterm-256color
 AddDevice=nvidia.com/gpu=0
 NoNewPrivileges=true
 Pull=never
-Exec=node dist/index.js gateway --bind lan --port 18789
+Exec=node dist/index.js gateway --bind lan --port %%OC_PORT%%
 
 [Service]
 TimeoutStartSec=300

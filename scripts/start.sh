@@ -2,14 +2,16 @@
 # Start OpenClaw and show logs.
 set -euo pipefail
 
-oc() { runuser -u openclaw -- env XDG_RUNTIME_DIR=/run/user/1002 HOME=/home/openclaw sh -c "cd /home/openclaw && $*"; }
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/config.sh
+source "$REPO/scripts/config.sh"
 
-echo "==> Starting OpenClaw..."
-oc "systemctl --user start openclaw.service"
+echo "==> Starting OpenClaw ($OC_NAME)..."
+oc "systemctl --user start $OC_NAME.service"
 
 echo "==> Waiting for startup..."
 sleep 20
-oc "systemctl --user status openclaw.service --no-pager" || true
-oc "podman logs openclaw 2>&1 | tail -20" || true
+oc "systemctl --user status $OC_NAME.service --no-pager" || true
+oc "podman logs $OC_NAME 2>&1 | tail -20" || true
 
 echo "==> Done."
