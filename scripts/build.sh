@@ -1,47 +1,25 @@
 #!/usr/bin/env bash
+# Build the custom OpenClaw image and restart the service.
 set -euo pipefail
-LOG="/home/aclater/openclaw-diag-$(date +%s).log"
-exec > "$LOG" 2>&1
 
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 oc() { runuser -u openclaw -- env XDG_RUNTIME_DIR=/run/user/1002 HOME=/home/openclaw sh -c "cd /home/openclaw && $*"; }
 
 echo "==> Stopping OpenClaw..."
 oc "systemctl --user stop openclaw.service" || true
 
-echo "==> Stopping and disabling Ollama..."
-oc "systemctl --user stop ollama.service" || true
-oc "systemctl --user disable ollama.service" || true
-
-echo "==> Updating openclaw.container quadlet..."
-QUADLET=/home/openclaw/.config/containers/systemd/openclaw.container
-# Remove ollama dependency
-sed -i '/^After=.*ollama\.service/s/ ollama\.service//' "$QUADLET"
-sed -i '/^After=$\|^After= /d' "$QUADLET"
-# Switch to host networking so Sonos SSDP multicast works
-sed -i 's/^Network=.*/Network=host/' "$QUADLET"
-# Remove PublishPort lines (not valid with host networking)
-sed -i '/^PublishPort=/d' "$QUADLET"
-oc "systemctl --user daemon-reload"
-
-echo "==> Building custom image..."
-oc "podman build -t ghcr.io/openclaw/openclaw:slim - <<'CONTAINEREOF'
-FROM ghcr.io/openclaw/openclaw:slim
-USER root
-RUN npm install -g sonos-cli
-USER node
-CONTAINEREOF"
-
-echo "==> Removing Ollama container image..."
-oc "podman rmi ollama/ollama" 2>/dev/null || true
+echo "==> Building image..."
+runuser -u openclaw -- \
+  env XDG_RUNTIME_DIR=/run/user/1002 HOME=/home/openclaw \
+  sh -c "cd /home/openclaw && podman build -t ghcr.io/openclaw/openclaw:slim -" \
+  < "$REPO/Containerfile"
 
 echo "==> Starting OpenClaw..."
 oc "systemctl --user start openclaw.service"
 
-echo "==> Waiting 20s..."
-sleep 20
+echo "==> Waiting for startup..."
+sleep 15
+journalctl _SYSTEMD_USER_UNIT=openclaw.service --since "17 seconds ago" --no-pager 2>/dev/null \
+  | grep -v "container\|podman\|PODMAN" | tail -10
 
-echo "==> Status..."
-oc "systemctl --user status openclaw.service --no-pager" || true
-oc "podman logs openclaw 2>&1 | tail -20" || true
-
-echo "==> Done: $LOG"
+echo "==> Done."
