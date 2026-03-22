@@ -1,0 +1,27 @@
+[Unit]
+Description=OpenClaw gateway (rootless Podman)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/openclaw/openclaw:slim
+ContainerName=openclaw
+UserNS=keep-id
+User=1002:1003
+Network=host
+Volume=/home/openclaw/.openclaw:/home/node/.openclaw:Z
+EnvironmentFile=/home/openclaw/.openclaw/.env
+Environment=HOME=/home/node
+Environment=TERM=xterm-256color
+AddDevice=nvidia.com/gpu=0
+NoNewPrivileges=true
+Pull=never
+Exec=node dist/index.js gateway --bind lan --port 18789
+
+[Service]
+TimeoutStartSec=300
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
