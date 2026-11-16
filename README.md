@@ -2,6 +2,48 @@
 
 Podman quadlet and custom container image for running [OpenClaw](https://openclaw.dev) on Fedora/RHEL with rootless Podman.
 
+## Quick start
+
+You need Fedora or RHEL with Podman, sudo, an NVIDIA GPU set up for Podman (CDI), and Anthropic, Tavily and Google
+(Gemini) API keys. This quick start has not yet been tested end to end on a fresh system.
+
+1. Create the user OpenClaw runs as, and let its services run without a login:
+
+   ```
+   sudo useradd openclaw
+   sudo loginctl enable-linger openclaw
+   ```
+
+2. Get the skills and this repository:
+
+   ```
+   sudo git clone https://github.com/aclater/openclaw-skills.git /opt/openclaw-skills
+   git clone https://github.com/aclater/openclaw-quadlet.git
+   cd openclaw-quadlet
+   ```
+
+3. Store the API keys in a folder only root can read. Run each command, paste the key, press Enter, then Ctrl+D:
+
+   ```
+   sudo install -d -m 700 /root/openclaw-keys
+   sudo sh -c 'cat > /root/openclaw-keys/.anthropic.key'
+   sudo sh -c 'cat > /root/openclaw-keys/.tavily.key'
+   sudo sh -c 'cat > /root/openclaw-keys/.youtube.key'
+   ```
+
+4. Install the quadlet, write the configuration, build the image and start OpenClaw:
+
+   ```
+   sudo OC_SKILLS=/opt/openclaw-skills bash scripts/install.sh
+   sudo KEYS_DIR=/root/openclaw-keys bash scripts/fix-config.sh
+   sudo bash scripts/build.sh
+   ```
+
+   On a first install, `fix-config.sh` ends with an error because it cannot start OpenClaw before the image exists;
+   `build.sh` builds the image and starts it.
+
+5. Open http://127.0.0.1:18789/.
+
 ## What's here
 
 | File | Purpose |
